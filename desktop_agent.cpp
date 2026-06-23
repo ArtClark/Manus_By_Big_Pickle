@@ -311,19 +311,42 @@ static JVal *tool_get_cursor_pos(void) {
 }
 
 /* ============================= TOOL: SHOW USER ============================= */
+static int is_pointer_location_enabled(void) {
+    HKEY hk; DWORD val=0, sz=sizeof(val);
+    if(RegOpenKeyExA(HKEY_CURRENT_USER,"Control Panel\\Mouse",0,KEY_READ,&hk)==ERROR_SUCCESS){
+        if(RegQueryValueExA(hk,"ShowLocation",NULL,NULL,(LPBYTE)&val,&sz)==ERROR_SUCCESS){
+            RegCloseKey(hk);
+            return val==1 || (val=='1' && sz==1);
+        }
+        RegCloseKey(hk);
+    }
+    return 0;
+}
+
 static JVal *tool_show_user(int x, int y) {
     POINT orig;
     GetCursorPos(&orig);
-    double cx = (double)x, cy = (double)y;
-    int step_deg = 3;
-    for (int deg = 0; deg < 540; deg += step_deg) {
-        double rad = deg * (3.14159265358979323846 / 180.0);
-        SetCursorPos((int)(cx + 30 * cos(rad)), (int)(cy + 30 * sin(rad)));
-        Sleep(8);
+    char method[32];
+    if(is_pointer_location_enabled()){
+        strcpy(method,"accessibility");
+        SetCursorPos(x, y);
+        keybd_event(VK_CONTROL, 0, 0, 0);
+        Sleep(100);
+        keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
+        Sleep(300);
+    } else {
+        strcpy(method,"software circle");
+        double cx = (double)x, cy = (double)y;
+        int step_deg = 3;
+        for (int deg = 0; deg < 540; deg += step_deg) {
+            double rad = deg * (3.14159265358979323846 / 180.0);
+            SetCursorPos((int)(cx + 30 * cos(rad)), (int)(cy + 30 * sin(rad)));
+            Sleep(8);
+        }
     }
     SetCursorPos(orig.x, orig.y);
-    char msg[96];
-    sprintf(msg, "Circled (%d,%d) 1.5x at r=30px, returned to (%d,%d)", x, y, orig.x, orig.y);
+    char msg[128];
+    sprintf(msg, "Showed user (%d,%d) via %s, returned to (%d,%d)", x, y, method, orig.x, orig.y);
     JVal *c = j_arr(); JVal *t = j_obj(); j_set_str(t, "type", "text"); j_set_str(t, "text", msg); j_append(c, t);
     JVal *r = j_obj(); j_set(r, "content", c); return r;
 }
