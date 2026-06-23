@@ -4,3 +4,7 @@
 chat.txt
 test_*.ps1
 test_*.bin
+
+*.res
+
+gen_icon.exe

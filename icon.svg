@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="boxGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e63946;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#c1121f;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="handGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#fdf0d5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e0c9a6;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="lidGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#d62828;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#9b2226;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="140%">
+      <feDropShadow dx="3" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="128" cy="128" r="120" fill="#1d3557" opacity="0.08"/>
+
+  <!-- Toolbox shadow -->
+  <rect x="56" y="82" width="130" height="90" rx="8" fill="#000" opacity="0.12" transform="translate(3,4)"/>
+
+  <!-- Toolbox body -->
+  <rect x="56" y="72" width="130" height="100" rx="8" fill="url(#boxGrad)" filter="url(#shadow)"/>
+
+  <!-- Toolbox lid -->
+  <rect x="50" y="62" width="142" height="20" rx="6" fill="url(#lidGrad)" filter="url(#shadow)"/>
+  <!-- Lid latch -->
+  <rect x="107" y="56" width="28" height="14" rx="4" fill="#780000"/>
+  <rect x="112" y="58" width="18" height="10" rx="3" fill="#e63946"/>
+
+  <!-- Toolbox handle -->
+  <rect x="90" y="48" width="62" height="14" rx="7" fill="#780000" filter="url(#shadow)"/>
+  <rect x="94" y="50" width="54" height="10" rx="5" fill="#1d3557"/>
+
+  <!-- Tools peeking out (left: wrench) -->
+  <rect x="72" y="68" width="6" height="28" rx="3" fill="#a8dadc" transform="rotate(-15,75,82)"/>
+  <circle cx="75" cy="66" r="5" fill="#a8dadc" transform="rotate(-15,75,82)"/>
+
+  <!-- Tools peeking out (right: hammer) -->
+  <rect x="150" y="70" width="6" height="24" rx="3" fill="#a8dadc" transform="rotate(15,153,82)"/>
+  <rect x="146" y="62" width="14" height="12" rx="2" fill="#e0c9a6" transform="rotate(15,153,82)"/>
+
+  <!-- Toolbox details: slots on front -->
+  <rect x="66" y="86" width="110" height="4" rx="2" fill="#9b2226" opacity="0.5"/>
+  <rect x="66" y="96" width="110" height="2" rx="1" fill="#9b2226" opacity="0.3"/>
+
+  <!-- Hand (gripping toolbox) -->
+  <!-- Palm -->
+  <path d="M170,120 C178,114 198,118 196,134 C194,150 190,160 180,168 C172,174 156,178 144,172
+           C136,168 130,156 128,148 C126,140 128,130 134,124 C140,118 152,120 156,126
+           C158,130 156,136 152,140 C148,144 142,144 140,140"
+        fill="url(#handGrad)" stroke="#c9a96e" stroke-width="1.5" filter="url(#shadow)"/>
+
+  <!-- Thumb (wrapping over lid) -->
+  <ellipse cx="175" cy="66" rx="14" ry="20" fill="url(#handGrad)" stroke="#c9a96e" stroke-width="1.5" transform="rotate(20,175,66)" filter="url(#shadow)"/>
+
+  <!-- Finger 1 (index, over lid) -->
+  <ellipse cx="92" cy="58" rx="8" ry="14" fill="url(#handGrad)" stroke="#c9a96e" stroke-width="1.5" transform="rotate(-10,92,58)" filter="url(#shadow)"/>
+
+  <!-- Finger 2 (middle, over lid) -->
+  <ellipse cx="110" cy="56" rx="8" ry="14" fill="url(#handGrad)" stroke="#c9a96e" stroke-width="1" transform="rotate(-5,110,56)" filter="url(#shadow)"/>
+
+  <!-- Finger 3 (ring, over lid) -->
+  <ellipse cx="128" cy="56" rx="8" ry="14" fill="url(#handGrad)" stroke="#c9a96e" stroke-width="1" transform="rotate(5,128,56)" filter="url(#shadow)"/>
+
+  <!-- Finger 4 (pinky, over lid) -->
+  <ellipse cx="146" cy="58" rx="7" ry="12" fill="url(#handGrad)" stroke="#c9a96e" stroke-width="1" transform="rotate(15,146,58)" filter="url(#shadow)"/>
+
+  <!-- Wrist -->
+  <path d="M144,172 C150,180 160,196 158,208 C156,218 140,216 134,208
+           C128,200 126,188 128,178"
+        fill="url(#handGrad)" stroke="#c9a96e" stroke-width="1.5"/>
+
+  <!-- Fingernails -->
+  <ellipse cx="174" cy="56" rx="3" ry="4" fill="#fdf0d5" opacity="0.6" transform="rotate(20,174,56)"/>
+  <ellipse cx="92" cy="48" rx="3" ry="4" fill="#fdf0d5" opacity="0.6" transform="rotate(-10,92,48)"/>
+  <ellipse cx="110" cy="46" rx="3" ry="4" fill="#fdf0d5" opacity="0.6" transform="rotate(-5,110,46)"/>
+  <ellipse cx="128" cy="46" rx="3" ry="4" fill="#fdf0d5" opacity="0.6" transform="rotate(5,128,46)"/>
+  <ellipse cx="145" cy="49" rx="3" ry="3.5" fill="#fdf0d5" opacity="0.6" transform="rotate(15,145,49)"/>
+
+  <!-- Wrench icon on toolbox -->
+  <g transform="translate(106,106)" opacity="0.6">
+    <circle cx="0" cy="0" r="8" fill="none" stroke="#fdf0d5" stroke-width="2"/>
+    <rect x="-1.5" y="6" width="3" height="12" rx="1" fill="#fdf0d5"/>
+  </g>
+</svg>
