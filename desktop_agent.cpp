@@ -351,6 +351,135 @@ static JVal *tool_show_user(int x, int y) {
     JVal *r = j_obj(); j_set(r, "content", c); return r;
 }
 
+/* ============================= WINDOW READING TOOLS ============================= */
+static JVal *window_to_j(HWND hw, int depth, int max_depth) {
+    if (!hw || !IsWindow(hw) || depth > max_depth) return NULL;
+    JVal *o = j_obj();
+    j_set_num(o, "handle", (double)(ULONG_PTR)hw);
+
+    char cls[256] = "";
+    GetClassNameA(hw, cls, sizeof(cls));
+    j_set_str(o, "class", cls);
+
+    wchar_t wb[512] = {0};
+    SendMessageW(hw, WM_GETTEXT, 511, (LPARAM)wb);
+    if (wb[0]) {
+        int len = WideCharToMultiByte(CP_UTF8, 0, wb, -1, NULL, 0, NULL, NULL);
+        if (len > 0) {
+            char *t = (char*)malloc(len);
+            WideCharToMultiByte(CP_UTF8, 0, wb, -1, t, len, NULL, NULL);
+            j_set_str(o, "text", t);
+            free(t);
+        }
+    }
+
+    RECT r;
+    GetWindowRect(hw, &r);
+    JVal *rr = j_obj();
+    j_set_num(rr, "left", (double)r.left); j_set_num(rr, "top", (double)r.top);
+    j_set_num(rr, "right", (double)r.right); j_set_num(rr, "bottom", (double)r.bottom);
+    j_set(o, "rect", rr);
+
+    j_set_num(o, "visible", IsWindowVisible(hw) ? 1 : 0);
+
+    int n = 0;
+    JVal *kids = j_arr();
+    HWND ch = GetWindow(hw, GW_CHILD);
+    while (ch && n < 30) {
+        JVal *kd = window_to_j(ch, depth + 1, max_depth);
+        if (kd) { j_append(kids, kd); n++; }
+        ch = GetWindow(ch, GW_HWNDNEXT);
+    }
+    j_set(o, "children", kids);
+    return o;
+}
+
+static JVal *tool_get_window_at(int x, int y) {
+    POINT pt = {(LONG)x, (LONG)y};
+    HWND top = WindowFromPoint(pt);
+    if (!top) {
+        JVal *c = j_arr(); JVal *t = j_obj(); j_set_str(t, "type", "text"); j_set_str(t, "text", "No window found");
+        j_append(c, t); JVal *r = j_obj(); j_set(r, "content", c); return r;
+    }
+
+    // Walk point → deepest child
+    RECT wr;
+    GetWindowRect(top, &wr);
+    POINT cp = {(LONG)(x - wr.left), (LONG)(y - wr.top)};
+    HWND deepest = RealChildWindowFromPoint(top, cp);
+
+    // Build ancestry chain from deepest up to desktop
+    HWND chain[32];
+    int n = 0;
+    HWND h = deepest ? deepest : top;
+    while (h && n < 32) { chain[n++] = h; h = GetParent(h); }
+
+    // True top-level window = last non-null in chain
+    HWND top_level = chain[n - 1];
+
+    // Describe the target (deepest child)
+    JVal *target = deepest ? window_to_j(deepest, 0, 2) : NULL;
+
+    // Ancestry list (top-level first, deepest last)
+    JVal *ancestors = j_arr();
+    for (int i = n - 1; i >= 0; i--) {
+        JVal *a = window_to_j(chain[i], 0, 1);
+        if (a) j_append(ancestors, a);
+    }
+
+    // Top-level window tree with children
+    JVal *top_desc = window_to_j(top_level, 0, 2);
+
+    // Build result
+    JVal *res = j_obj();
+    JVal *ptj = j_obj(); j_set_num(ptj, "x", (double)x); j_set_num(ptj, "y", (double)y);
+    j_set(res, "point", ptj);
+    if (target) j_set(res, "target", target);
+    j_set(res, "ancestors", ancestors);
+    j_set(res, "top_window", top_desc);
+
+    JVal *c = j_arr(); JVal *tv = j_obj();
+    j_set_str(tv, "type", "text");
+    char buf[128];
+    HWND d = deepest ? deepest : top;
+    char dc[64] = ""; GetClassNameA(d, dc, sizeof(dc));
+    sprintf(buf, "Window at (%d,%d): handle=%llu class=%s%s", x, y,
+            (unsigned long long)(ULONG_PTR)d, dc,
+            deepest ? " (deepest)" : "");
+    j_set_str(tv, "text", buf);
+    j_append(c, tv);
+
+    JVal *tj = j_obj();
+    j_set(tj, "content", c);
+    j_set(tj, "window_info", res);
+    return tj;
+}
+
+static JVal *tool_get_text(unsigned long long handle) {
+    HWND hw = (HWND)(ULONG_PTR)handle;
+    if (!hw || !IsWindow(hw)) return NULL;
+
+    wchar_t wb[4096] = {0};
+    int len = (int)SendMessageW(hw, WM_GETTEXT, 4095, (LPARAM)wb);
+    if (len <= 0) {
+        JVal *c = j_arr(); JVal *t = j_obj();
+        j_set_str(t, "type", "text"); j_set_str(t, "text", "Window has no text or is not readable");
+        j_append(c, t); JVal *r = j_obj(); j_set(r, "content", c); return r;
+    }
+
+    int mlen = WideCharToMultiByte(CP_UTF8, 0, wb, -1, NULL, 0, NULL, NULL);
+    char *text = (char*)malloc(mlen);
+    WideCharToMultiByte(CP_UTF8, 0, wb, -1, text, mlen, NULL, NULL);
+
+    JVal *c = j_arr(); JVal *t = j_obj();
+    j_set_str(t, "type", "text");
+    char buf[32]; sprintf(buf, "%d chars", len);
+    j_set_str(t, "text", text);
+    j_append(c, t);
+    JVal *r = j_obj(); j_set(r, "content", c); free(text);
+    return r;
+}
+
 /* ============================= TOOLS: KEYBOARD ============================= */
 static void send_keys(BYTE ctrl, BYTE key) {
     INPUT in[4]={0};
@@ -533,6 +662,16 @@ JVal*ev=j_arr();const char*evv[]={__VA_ARGS__};for(int _i=0;_i<(int)(sizeof(evv)
     R("x","y");
     E;
 
+    T("get_window_at","Find and describe the window hierarchy at a screen coordinate. Returns the deepest child window, its ancestors, and the top-level window tree.")
+    PN("x","integer","Screen X coordinate"); PN("y","integer","Screen Y coordinate");
+    R("x","y");
+    E;
+
+    T("get_text","Read the text content of a window by its handle. Returns text from edit controls, status bars, buttons, etc.")
+    PN("handle","integer","Window handle number (from get_window_at)");
+    R("handle");
+    E;
+
 #undef T
 #undef PN
 #undef PE
@@ -575,6 +714,16 @@ static JVal *dispatch(const char *name, JVal *args) {
         if(!jx||!jy) return NULL;
         return tool_show_user((int)j_as_num(jx),(int)j_as_num(jy));
     }
+    if(!strcmp(name,"get_window_at")){
+        JVal *jx=j_get(args,"x"),*jy=j_get(args,"y");
+        if(!jx||!jy) return NULL;
+        return tool_get_window_at((int)j_as_num(jx),(int)j_as_num(jy));
+    }
+    if(!strcmp(name,"get_text")){
+        JVal *jh=j_get(args,"handle");
+        if(!jh) return NULL;
+        return tool_get_text((unsigned long long)j_as_num(jh));
+    }
     if(!strcmp(name,"copy")) return tool_copy();
     if(!strcmp(name,"paste")){
         const char *text=j_as_str(j_get(args,"text"));
@@ -598,6 +747,8 @@ static void print_help(void) {
     printf("  mouse_click          Click button at optional (x, y)\n");
     printf("  get_cursor_position  Report current cursor coordinates\n");
     printf("  show_user            Circle a point 1.5x, then return to original cursor\n");
+    printf("  get_window_at        Find window hierarchy at screen coordinates\n");
+    printf("  get_text             Read text from a window by handle\n");
     printf("  copy                 Send Ctrl+C, return clipboard text\n");
     printf("  paste                Send Ctrl+V, optionally set clipboard text\n\n");
     printf("Flags:\n");
