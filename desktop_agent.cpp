@@ -6,6 +6,7 @@
 #include <string.h>
 #include <time.h>
 #include <stdarg.h>
+#include <math.h>
 
 #pragma comment(lib, "gdi32.lib")
 #pragma comment(lib, "gdiplus.lib")
@@ -309,6 +310,24 @@ static JVal *tool_get_cursor_pos(void) {
     JVal *r=j_obj(); j_set(r,"content",c); return r;
 }
 
+/* ============================= TOOL: SHOW USER ============================= */
+static JVal *tool_show_user(int x, int y) {
+    POINT orig;
+    GetCursorPos(&orig);
+    double cx = (double)x, cy = (double)y;
+    int step_deg = 3;
+    for (int deg = 0; deg < 540; deg += step_deg) {
+        double rad = deg * (3.14159265358979323846 / 180.0);
+        SetCursorPos((int)(cx + 30 * cos(rad)), (int)(cy + 30 * sin(rad)));
+        Sleep(8);
+    }
+    SetCursorPos(orig.x, orig.y);
+    char msg[96];
+    sprintf(msg, "Circled (%d,%d) 1.5x at r=30px, returned to (%d,%d)", x, y, orig.x, orig.y);
+    JVal *c = j_arr(); JVal *t = j_obj(); j_set_str(t, "type", "text"); j_set_str(t, "text", msg); j_append(c, t);
+    JVal *r = j_obj(); j_set(r, "content", c); return r;
+}
+
 /* ============================= TOOLS: KEYBOARD ============================= */
 static void send_keys(BYTE ctrl, BYTE key) {
     INPUT in[4]={0};
@@ -486,6 +505,11 @@ JVal*ev=j_arr();const char*evv[]={__VA_ARGS__};for(int _i=0;_i<(int)(sizeof(evv)
     PN("text","string","Optional text to write to clipboard before pasting");
     E;
 
+    T("show_user","Animate mouse circling a point 1.5 times (r=30px) then return to original position. Helps user see where action will occur.")
+    PN("x","integer","X coordinate of center"); PN("y","integer","Y coordinate of center");
+    R("x","y");
+    E;
+
 #undef T
 #undef PN
 #undef PE
@@ -523,6 +547,11 @@ static JVal *dispatch(const char *name, JVal *args) {
         JVal *jx=j_get(args,"x"),*jy=j_get(args,"y");
         return tool_mouse_click(btn,jx!=NULL,jy!=NULL,(int)j_as_num(jx),(int)j_as_num(jy));
     }
+    if(!strcmp(name,"show_user")){
+        JVal *jx=j_get(args,"x"),*jy=j_get(args,"y");
+        if(!jx||!jy) return NULL;
+        return tool_show_user((int)j_as_num(jx),(int)j_as_num(jy));
+    }
     if(!strcmp(name,"copy")) return tool_copy();
     if(!strcmp(name,"paste")){
         const char *text=j_as_str(j_get(args,"text"));
@@ -545,6 +574,7 @@ static void print_help(void) {
     printf("  mouse_up             Release button (left/right)\n");
     printf("  mouse_click          Click button at optional (x, y)\n");
     printf("  get_cursor_position  Report current cursor coordinates\n");
+    printf("  show_user            Circle a point 1.5x, then return to original cursor\n");
     printf("  copy                 Send Ctrl+C, return clipboard text\n");
     printf("  paste                Send Ctrl+V, optionally set clipboard text\n\n");
     printf("Flags:\n");
