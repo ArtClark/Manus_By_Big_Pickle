@@ -594,6 +594,31 @@ static JVal *tool_paste(const char *text) {
     JVal *r=j_obj(); j_set(r,"content",c); return r;
 }
 
+static JVal *tool_type_text(const char *text) {
+    if(!text||!*text) {
+        JVal *c=j_arr(); JVal *t=j_obj(); j_set_str(t,"type","text"); j_set_str(t,"text","No text to type"); j_append(c,t);
+        JVal *r=j_obj(); j_set(r,"content",c); return r;
+    }
+    // Count events: each regular char = 2, special keys = 2
+    int len=(int)strlen(text);
+    int events=0;
+    for(int i=0;i<len;i++) events += (text[i]=='\n'||text[i]=='\r'||text[i]=='\t') ? 2 : 2;
+    INPUT *in=(INPUT*)calloc(events,sizeof(INPUT));
+    int idx=0;
+    for(int i=0;i<len;i++){
+        BYTE vk=0; WORD scan=0; DWORD flags=KEYEVENTF_UNICODE;
+        if(text[i]=='\n'||text[i]=='\r'){ vk=VK_RETURN; scan=0; flags=0; }
+        else if(text[i]=='\t'){ vk=VK_TAB; scan=0; flags=0; }
+        else { scan=(WORD)(unsigned char)text[i]; }
+        in[idx].type=INPUT_KEYBOARD; in[idx].ki.wVk=vk; in[idx].ki.wScan=scan; in[idx].ki.dwFlags=flags; idx++;
+        in[idx].type=INPUT_KEYBOARD; in[idx].ki.wVk=vk; in[idx].ki.wScan=scan; in[idx].ki.dwFlags=flags|KEYEVENTF_KEYUP; idx++;
+    }
+    SendInput(events,in,sizeof(INPUT));
+    free(in);
+    JVal *c=j_arr(); JVal *t=j_obj(); j_set_str(t,"type","text"); j_set_str(t,"text","Typed text"); j_append(c,t);
+    JVal *r=j_obj(); j_set(r,"content",c); return r;
+}
+
 /* ============================= SAFETY & LOGGING ============================= */
 typedef struct {
     volatile int btn_down; /* 0=none,1=left,2=right */
@@ -739,6 +764,11 @@ JVal*ev=j_arr();const char*evv[]={__VA_ARGS__};for(int _i=0;_i<(int)(sizeof(evv)
     T("read_page","Select all content in the active window (Ctrl+A), copy to clipboard (Ctrl+C), return the text. Sends Esc afterward to deselect. Works on web pages, documents, and most text editors.")
     E;
 
+    T("type_text","Type a string of text into the active window using keystrokes. Supports letters, numbers, and punctuation. Use \\n for Enter.")
+    PN("text","string","Text to type");
+    R("text");
+    E;
+
     T("get_page_html","Get the full HTML of the active browser page. Requires the Manus browser extension and native bridge running.")
     E;
 
@@ -844,6 +874,11 @@ static JVal *dispatch(const char *name, JVal *args) {
         return tool_get_text((unsigned long long)j_as_num(jh));
     }
     if(!strcmp(name,"read_page")) return tool_read_page();
+    if(!strcmp(name,"type_text")){
+        const char *text=j_as_str(j_get(args,"text"));
+        if(!text) return NULL;
+        return tool_type_text(text);
+    }
     if(!strcmp(name,"copy")) return tool_copy();
     if(!strcmp(name,"paste")){
         const char *text=j_as_str(j_get(args,"text"));
@@ -917,6 +952,7 @@ static void print_help(void) {
     printf("  get_window_at        Find window hierarchy at screen coordinates\n");
     printf("  get_text             Read text from a window by handle\n");
     printf("  read_page            Select all (Ctrl+A) + copy (Ctrl+C) active window content\n");
+    printf("  type_text            Type text into the active window (use \\n for Enter)\n");
     printf("  get_page_html        Get full HTML of active browser page (needs extension)\n");
     printf("  capture_browser_tab  Capture browser tab as base64 PNG data URL\n");
     printf("  get_page_links       Get all links from active browser page\n");

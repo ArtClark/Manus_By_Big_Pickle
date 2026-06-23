@@ -4,7 +4,7 @@ Manus (Latin for "hand") is a lightweight MCP server that gives LLMs the ability
 
 Also includes a Chrome extension and native messaging bridge for reading, interacting with, and injecting JavaScript into browser pages.
 
-## Tools (17 total)
+## Tools (19 total)
 
 | Tool | Description |
 |------|-------------|
@@ -17,7 +17,9 @@ Also includes a Chrome extension and native messaging bridge for reading, intera
 | `get_window_at` | Find and describe window hierarchy at a screen coordinate (handle, class, text, rect, children) |
 | `get_text` | Read text from a window by handle (WM_GETTEXT) |
 | `read_page` | Select all + copy (Ctrl+A, Ctrl+C, Esc) the active window — works on any app without an extension |
+| `type_text` | Type arbitrary text into the active window via keystrokes. `\n` for Enter |
 | `get_page_html` | Get full HTML of the active browser page (needs extension + bridge) |
+| `capture_browser_tab` | Capture visible browser tab as base64 PNG data URL |
 | `get_page_links` | Get all links from the active browser page |
 | `get_page_info` | Get title and URL of the active browser page |
 | `click_page_link` | Click a link by index from `get_page_links` |
