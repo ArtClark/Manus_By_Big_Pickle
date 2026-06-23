@@ -1,4 +1,10 @@
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    // Only accept messages from our own extension
+    if (sender.id !== chrome.runtime.id) {
+        sendResponse({ error: "Unauthorized" });
+        return;
+    }
+
     const action = msg.action || msg.cmd;
     switch (action) {
         case "getHTML":

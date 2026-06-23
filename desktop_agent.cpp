@@ -742,6 +742,9 @@ JVal*ev=j_arr();const char*evv[]={__VA_ARGS__};for(int _i=0;_i<(int)(sizeof(evv)
     T("get_page_html","Get the full HTML of the active browser page. Requires the Manus browser extension and native bridge running.")
     E;
 
+    T("capture_browser_tab","Capture the visible area of the active browser tab as a base64 PNG data URL.")
+    E;
+
     T("get_page_links","Get all links on the active browser page. Returns index, text, and href for each.")
     E;
 
@@ -850,6 +853,10 @@ static JVal *dispatch(const char *name, JVal *args) {
         char *r=bridge_call("{\"action\":\"getHTML\"}");
         return bridge_result(r);
     }
+    if(!strcmp(name,"capture_browser_tab")){
+        char *r=bridge_call("{\"action\":\"captureTab\"}");
+        return bridge_result(r);
+    }
     if(!strcmp(name,"get_page_links")){
         char *r=bridge_call("{\"action\":\"getLinks\"}");
         return bridge_result(r);
@@ -911,6 +918,7 @@ static void print_help(void) {
     printf("  get_text             Read text from a window by handle\n");
     printf("  read_page            Select all (Ctrl+A) + copy (Ctrl+C) active window content\n");
     printf("  get_page_html        Get full HTML of active browser page (needs extension)\n");
+    printf("  capture_browser_tab  Capture browser tab as base64 PNG data URL\n");
     printf("  get_page_links       Get all links from active browser page\n");
     printf("  get_page_info        Get title and URL of active browser page\n");
     printf("  click_page_link      Click a link by index from get_page_links\n");
