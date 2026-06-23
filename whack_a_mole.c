@@ -122,7 +122,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
     RECT wr = {100, 100, 700, 500};
     AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
     HWND hw = CreateWindowExW(0, L"WHACK_MAIN", L"Whack-a-Mole - SCORE: 0",
-        WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+        WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_MAXIMIZE,
         wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top,
         NULL, NULL, hInst, NULL);
     if (!hw) return 1;
