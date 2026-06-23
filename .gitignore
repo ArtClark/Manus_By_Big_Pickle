@@ -1,3 +1,6 @@
-chat.txt
 *.exe
 *.log
+*.bin
+chat.txt
+test_*.ps1
+test_*.bin

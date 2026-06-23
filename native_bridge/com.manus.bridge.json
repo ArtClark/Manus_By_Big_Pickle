@@ -1,0 +1,9 @@
+{
+  "name": "com.manus.bridge",
+  "description": "Native messaging bridge for Manus browser extension",
+  "path": "native_bridge.exe",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://ejkkkgjbpgjmmmoakgdjpffbffbapalm/"
+  ]
+}

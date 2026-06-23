@@ -480,6 +480,70 @@ static JVal *tool_get_text(unsigned long long handle) {
     return r;
 }
 
+/* ============================= TOOL: READ PAGE ============================= */
+static JVal *tool_read_page(void) {
+    HWND fg = GetForegroundWindow();
+    if (!fg) {
+        JVal *c = j_arr(); JVal *t = j_obj(); j_set_str(t,"type","text"); j_set_str(t,"text","No foreground window");
+        j_append(c,t); JVal *r = j_obj(); j_set(r,"content",c); return r;
+    }
+
+    // Ctrl+A
+    INPUT ctrla[4] = {{0}};
+    ctrla[0].type = INPUT_KEYBOARD; ctrla[0].ki.wVk = VK_CONTROL;
+    ctrla[1].type = INPUT_KEYBOARD; ctrla[1].ki.wVk = 0x41;
+    ctrla[2].type = INPUT_KEYBOARD; ctrla[2].ki.wVk = 0x41; ctrla[2].ki.dwFlags = KEYEVENTF_KEYUP;
+    ctrla[3].type = INPUT_KEYBOARD; ctrla[3].ki.wVk = VK_CONTROL; ctrla[3].ki.dwFlags = KEYEVENTF_KEYUP;
+    SendInput(4, ctrla, sizeof(INPUT));
+    Sleep(400);
+
+    // Ctrl+C
+    INPUT ctrlc[4] = {{0}};
+    ctrlc[0].type = INPUT_KEYBOARD; ctrlc[0].ki.wVk = VK_CONTROL;
+    ctrlc[1].type = INPUT_KEYBOARD; ctrlc[1].ki.wVk = 0x43;
+    ctrlc[2].type = INPUT_KEYBOARD; ctrlc[2].ki.wVk = 0x43; ctrlc[2].ki.dwFlags = KEYEVENTF_KEYUP;
+    ctrlc[3].type = INPUT_KEYBOARD; ctrlc[3].ki.wVk = VK_CONTROL; ctrlc[3].ki.dwFlags = KEYEVENTF_KEYUP;
+    SendInput(4, ctrlc, sizeof(INPUT));
+    Sleep(400);
+
+    // Read clipboard
+    char *text = NULL;
+    if (OpenClipboard(NULL)) {
+        HANDLE h = GetClipboardData(CF_UNICODETEXT);
+        if (h) {
+            wchar_t *w = (wchar_t*)GlobalLock(h);
+            if (w) {
+                int len = WideCharToMultiByte(CP_UTF8, 0, w, -1, NULL, 0, NULL, NULL);
+                if (len > 0) {
+                    text = (char*)malloc(len);
+                    WideCharToMultiByte(CP_UTF8, 0, w, -1, text, len, NULL, NULL);
+                }
+                GlobalUnlock(h);
+            }
+        }
+        CloseClipboard();
+    }
+
+    // Esc to deselect
+    INPUT esc[2] = {{0}};
+    esc[0].type = INPUT_KEYBOARD; esc[0].ki.wVk = VK_ESCAPE;
+    esc[1].type = INPUT_KEYBOARD; esc[1].ki.wVk = VK_ESCAPE; esc[1].ki.dwFlags = KEYEVENTF_KEYUP;
+    SendInput(2, esc, sizeof(INPUT));
+
+    JVal *c = j_arr(); JVal *t = j_obj(); j_set_str(t,"type","text");
+    if (text) {
+        j_set_str(t,"text",text);
+        JVal *m = j_obj(); char buf[64]; sprintf(buf,"Read %zu chars via Ctrl+A, Ctrl+C", strlen(text));
+        j_set_str(m,"type","text"); j_set_str(m,"text",buf);
+        j_append(c,t); j_append(c,m);
+        free(text);
+    } else {
+        j_set_str(t,"text","Could not read page content: clipboard empty");
+        j_append(c,t);
+    }
+    JVal *r = j_obj(); j_set(r,"content",c); return r;
+}
+
 /* ============================= TOOLS: KEYBOARD ============================= */
 static void send_keys(BYTE ctrl, BYTE key) {
     INPUT in[4]={0};
@@ -672,12 +736,64 @@ JVal*ev=j_arr();const char*evv[]={__VA_ARGS__};for(int _i=0;_i<(int)(sizeof(evv)
     R("handle");
     E;
 
+    T("read_page","Select all content in the active window (Ctrl+A), copy to clipboard (Ctrl+C), return the text. Sends Esc afterward to deselect. Works on web pages, documents, and most text editors.")
+    E;
+
+    T("get_page_html","Get the full HTML of the active browser page. Requires the Manus browser extension and native bridge running.")
+    E;
+
+    T("get_page_links","Get all links on the active browser page. Returns index, text, and href for each.")
+    E;
+
+    T("get_page_info","Get the title and URL of the active browser page.")
+    E;
+
+    T("click_page_link","Click a link on the browser page by its index (from get_page_links).")
+    PN("index","integer","Link index from get_page_links");
+    R("index");
+    E;
+
+    T("inject_page_js","Execute JavaScript code in the browser page. Returns the result as a string.")
+    PN("code","string","JavaScript code to execute");
+    R("code");
+    E;
+
 #undef T
 #undef PN
 #undef PE
 #undef R
 #undef E
     return a;
+}
+
+/* ============================= NATIVE BRIDGE TOOLS ============================= */
+#define BRIDGE_PIPE "\\\\.\\pipe\\manus_bridge"
+#define BRIDGE_TIMEOUT 10000
+
+static char *bridge_call(const char *json_cmd) {
+    HANDLE hPipe = CreateFileA(BRIDGE_PIPE, GENERIC_READ | GENERIC_WRITE,
+        0, NULL, OPEN_EXISTING, 0, NULL);
+    if (hPipe == INVALID_HANDLE_VALUE) return NULL;
+    DWORD wrote, len = (DWORD)strlen(json_cmd);
+    if (!WriteFile(hPipe, json_cmd, len, &wrote, NULL) || wrote != len) {
+        CloseHandle(hPipe); return NULL;
+    }
+    FlushFileBuffers(hPipe);
+    char buf[65536];
+    DWORD read;
+    if (!ReadFile(hPipe, buf, sizeof(buf) - 1, &read, NULL)) {
+        CloseHandle(hPipe); return NULL;
+    }
+    buf[read] = 0;
+    CloseHandle(hPipe);
+    return strdup(buf);
+}
+
+static JVal *bridge_result(char *resp) {
+    JVal *c = j_arr(); JVal *t = j_obj(); j_set_str(t,"type","text");
+    if (resp) { j_set_str(t,"text",resp); free(resp); }
+    else j_set_str(t,"text","Bridge unavailable");
+    j_append(c,t); JVal *r = j_obj(); j_set(r,"content",c); return r;
 }
 
 /* ============================= DISPATCH ============================= */
@@ -724,10 +840,54 @@ static JVal *dispatch(const char *name, JVal *args) {
         if(!jh) return NULL;
         return tool_get_text((unsigned long long)j_as_num(jh));
     }
+    if(!strcmp(name,"read_page")) return tool_read_page();
     if(!strcmp(name,"copy")) return tool_copy();
     if(!strcmp(name,"paste")){
         const char *text=j_as_str(j_get(args,"text"));
         return tool_paste(text);
+    }
+    if(!strcmp(name,"get_page_html")){
+        char *r=bridge_call("{\"action\":\"getHTML\"}");
+        return bridge_result(r);
+    }
+    if(!strcmp(name,"get_page_links")){
+        char *r=bridge_call("{\"action\":\"getLinks\"}");
+        return bridge_result(r);
+    }
+    if(!strcmp(name,"get_page_info")){
+        char *r=bridge_call("{\"action\":\"getTitle\"}");
+        char *r2=bridge_call("{\"action\":\"getUrl\"}");
+        char buf[8192];
+        if(r && r2) snprintf(buf,sizeof(buf),"Title: %s\nURL: %s",r,r2);
+        else if(r) snprintf(buf,sizeof(buf),"Title: %s\nURL: (unavailable)",r);
+        else if(r2) snprintf(buf,sizeof(buf),"Title: (unavailable)\nURL: %s",r2);
+        else { free(r); free(r2); return bridge_result(NULL); }
+        free(r); free(r2);
+        JVal *c=j_arr(); JVal *v=j_obj(); j_set_str(v,"type","text"); j_set_str(v,"text",buf);
+        j_append(c,v); JVal *res=j_obj(); j_set(res,"content",c); return res;
+    }
+    if(!strcmp(name,"click_page_link")){
+        JVal *ji=j_get(args,"index");
+        if(!ji) return NULL;
+        char buf[256]; snprintf(buf,256,"{\"action\":\"clickLink\",\"index\":%d}",(int)j_as_num(ji));
+        char *r=bridge_call(buf);
+        return bridge_result(r);
+    }
+    if(!strcmp(name,"inject_page_js")){
+        const char *code=j_as_str(j_get(args,"code"));
+        if(!code) return NULL;
+        // Escape for JSON: crude but sufficient for most cases
+        char *esc=(char*)malloc(strlen(code)*2+256);
+        const char *p=code; char *q=esc;
+        *q++='{'; *q++='"'; *q++='a'; *q++='c'; *q++='t'; *q++='"'; *q++=':'; *q++='"'; *q++='i'; *q++='n'; *q++='j'; *q++='e'; *q++='c'; *q++='t'; *q++='J'; *q++='S'; *q++='"'; *q++=','; *q++='"'; *q++='c'; *q++='o'; *q++='d'; *q++='e'; *q++='"'; *q++=':'; *q++='"';
+        while(*p){
+            if(*p=='"'||*p=='\\') *q++='\\';
+            *q++=*p++;
+        }
+        *q++='"'; *q++='}'; *q++=0;
+        char *r=bridge_call(esc);
+        free(esc);
+        return bridge_result(r);
     }
     return NULL;
 }
@@ -749,6 +909,12 @@ static void print_help(void) {
     printf("  show_user            Circle a point 1.5x, then return to original cursor\n");
     printf("  get_window_at        Find window hierarchy at screen coordinates\n");
     printf("  get_text             Read text from a window by handle\n");
+    printf("  read_page            Select all (Ctrl+A) + copy (Ctrl+C) active window content\n");
+    printf("  get_page_html        Get full HTML of active browser page (needs extension)\n");
+    printf("  get_page_links       Get all links from active browser page\n");
+    printf("  get_page_info        Get title and URL of active browser page\n");
+    printf("  click_page_link      Click a link by index from get_page_links\n");
+    printf("  inject_page_js       Execute JavaScript in browser page\n");
     printf("  copy                 Send Ctrl+C, return clipboard text\n");
     printf("  paste                Send Ctrl+V, optionally set clipboard text\n\n");
     printf("Flags:\n");

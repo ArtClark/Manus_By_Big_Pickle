@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Manus Desktop Bridge",
+  "version": "1.0",
+  "description": "Bridges Manus MCP server with the browser for page reading, JS injection, and link clicking.",
+  "permissions": [
+    "nativeMessaging",
+    "activeTab",
+    "scripting"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "host_permissions": ["<all_urls>"]
+}
